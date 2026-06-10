@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Billar Hall  Mis Reservas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand" href="/index.html"> BILLAR HALL</a>
+    <div class="collapse navbar-collapse justify-content-end">
+      <ul class="navbar-nav gap-1" id="auth-links"></ul>
+    </div>
+  </div>
+</nav>
+
+<div class="page-hero">
+  <div class="container">
+    <h1 class="page-title">Mis Reservas</h1>
+    <p class="page-subtitle mt-1">Historial completo de tus reservas en Billar Hall</p>
+  </div>
+</div>
+
+<div class="container py-4">
+  <div class="table-wrapper">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Fecha</th><th>Mesa</th><th>Horario</th><th>Total</th><th>Estado</th></tr>
+      </thead>
+      <tbody id="resBody">
+        <tr><td colspan="5" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  const user = checkAuth();
+
+  async function load() {
+    try {
+      const res = await api.reservations.getMy();
+      const tbody = document.getElementById('resBody');
+      if (res.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5" style="color:var(--text-400)">No tienes reservas registradas</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      res.forEach(r => {
+        const badge =
+          r.status === 'completada' ? `<span class="badge-custom badge-completada">Completada</span>` :
+          r.status === 'cancelada'  ? `<span class="badge-custom badge-cancelada">Cancelada</span>` :
+                                      `<span class="badge-custom badge-pendiente">Pendiente</span>`;
+        tbody.innerHTML += `
+          <tr>
+            <td>${new Date(r.reservation_date).toLocaleDateString('es-BO')}</td>
+            <td><span style="color:var(--primary);font-weight:700">Mesa ${r.table_number}</span></td>
+            <td>${r.start_time.substring(0,5)}  ${r.end_time.substring(0,5)}</td>
+            <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(r.total_price||0).toFixed(2)}</td>
+            <td>${badge}</td>
+          </tr>`;
+      });
+    } catch (e) { alert(e.message); }
+  }
+  load();
+</script>
+</body>
+</html>
