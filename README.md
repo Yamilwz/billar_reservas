@@ -236,10 +236,3 @@ users ──┬── reservations ── tables
 
 ---
 
-## 👤 Autor
-
-**Yamilwz** — [github.com/Yamilwz](https://github.com/Yamilwz)
-
----
-
-> Proyecto desarrollado como sistema de gestión integral para salones de billar.
