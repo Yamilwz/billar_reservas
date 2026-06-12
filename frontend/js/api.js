@@ -22,7 +22,8 @@ const api = {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'API Error');
+            const errorMsg = data.error ? `${data.message}: ${data.error}` : (data.message || 'API Error');
+            throw new Error(errorMsg);
         }
 
         return data;

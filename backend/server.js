@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -27,7 +27,21 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/tables', tableRoutes);
 
 const PORT = process.env.PORT || 3000;
+const pool = require('./config/db');
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // Check database connection on startup
+    try {
+        if (!process.env.DATABASE_URL) {
+            console.error('❌ ERROR FATAL: No se ha configurado DATABASE_URL en las variables de entorno.');
+        } else {
+            await pool.query('SELECT 1');
+            console.log('✅ Conexión a Supabase exitosa.');
+        }
+    } catch (err) {
+        console.error('❌ ERROR de conexión a Supabase:', err.message);
+        console.error('Verifica tu DATABASE_URL y que la contraseña sea correcta.');
+    }
 });
