@@ -1,6 +1,7 @@
 # 🎱 Sistema de Reservas para Salón de Billar
 
-Un sistema completo de gestión para salones de billar que incluye reservas en tiempo real, punto de venta (POS), control de inventario y reportes financieros.
+Un sistema completo de gestión para salones de billar que incluye reservas en tiempo real, punto de venta (POS), control de inventario y reportes financieros. 
+**Actualizado y configurado para producción en la nube con Supabase y Render.**
 
 ---
 
@@ -10,12 +11,12 @@ Un sistema completo de gestión para salones de billar que incluye reservas en t
 - [Tecnologías](#-tecnologías)
 - [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
 - [Requisitos Previos](#-requisitos-previos)
-- [Instalación y Configuración](#-instalación-y-configuración)
+- [Instalación Local](#-instalación-local)
+- [Despliegue en Producción](#-despliegue-en-producción-render--supabase)
 - [Base de Datos](#-base-de-datos)
 - [API Endpoints](#-api-endpoints)
 - [Módulos del Sistema](#-módulos-del-sistema)
 - [Credenciales por Defecto](#-credenciales-por-defecto)
-- [Autor](#-autor)
 
 ---
 
@@ -36,12 +37,12 @@ Un sistema completo de gestión para salones de billar que incluye reservas en t
 | Capa        | Tecnología                               |
 |-------------|------------------------------------------|
 | **Backend** | Node.js, Express.js 5                    |
-| **Base de datos** | MySQL 8 (via XAMPP)               |
-| **ORM / Driver** | mysql2                              |
+| **Base de datos** | PostgreSQL (via Supabase)         |
+| **ORM / Driver** | pg (node-postgres)                   |
 | **Autenticación** | JSON Web Tokens (jsonwebtoken)     |
 | **Seguridad** | bcryptjs (hash de contraseñas)          |
 | **Frontend** | HTML5, CSS3 Vanilla, JavaScript ES6+     |
-| **Entorno** | dotenv                                   |
+| **Despliegue**| Render (Web Service)                     |
 
 ---
 
@@ -51,13 +52,13 @@ Un sistema completo de gestión para salones de billar que incluye reservas en t
 billar/
 ├── backend/
 │   ├── config/
-│   │   └── db.js                  # Conexión MySQL
+│   │   └── db.js                  # Conexión PostgreSQL (Supabase)
 │   ├── controllers/
 │   │   ├── authController.js      # Registro y login
 │   │   ├── reservationController.js # CRUD de reservas
 │   │   ├── tableController.js     # Estado de mesas
 │   │   ├── productController.js   # Inventario
-│   │   └── saleController.js      # POS y ventas
+│   │   └── saleController.js      # Transacciones POS
 │   ├── middleware/
 │   │   └── authMiddleware.js      # Verificación JWT y roles
 │   ├── routes/
@@ -66,15 +67,15 @@ billar/
 │   │   ├── tableRoutes.js
 │   │   ├── productRoutes.js
 │   │   └── saleRoutes.js
-│   ├── .env                       # Variables de entorno
+│   ├── .env                       # Variables de entorno (ignorado en Git)
 │   └── server.js                  # Punto de entrada del servidor
 ├── database/
-│   └── schema.sql                 # Esquema completo + datos semilla
+│   └── schema_supabase.sql        # Esquema PostgreSQL + datos semilla
 ├── frontend/
 │   ├── css/
 │   │   └── style.css              # Estilos globales (tema oscuro)
 │   ├── js/
-│   │   ├── api.js                 # Capa de comunicación con la API
+│   │   ├── api.js                 # Capa de comunicación dinámica con la API
 │   │   ├── nav.js                 # Navegación y manejo de sesión
 │   │   └── map.js                 # Mapa interactivo de mesas
 │   ├── index.html                 # Dashboard principal (mesas)
@@ -85,7 +86,6 @@ billar/
 │   ├── admin_inventory.html       # Gestión de inventario (admin)
 │   ├── admin_pos.html             # Punto de venta (admin)
 │   └── admin_finances.html        # Reporte financiero (admin)
-├── seed.js                        # Script de datos de prueba
 ├── package.json
 └── README.md
 ```
@@ -95,12 +95,13 @@ billar/
 ## ⚙️ Requisitos Previos
 
 - [Node.js](https://nodejs.org/) v18+
-- [XAMPP](https://www.apachefriends.org/) (con MySQL activo en puerto 3306)
 - Git
+- Una cuenta en [Supabase](https://supabase.com) (para la base de datos)
+- Una cuenta en [Render](https://render.com) (para el despliegue)
 
 ---
 
-## 🚀 Instalación y Configuración
+## 💻 Instalación Local
 
 ### 1. Clonar el repositorio
 
@@ -115,44 +116,51 @@ cd billar_reservas
 npm install
 ```
 
-### 3. Configurar variables de entorno
+### 3. Configurar base de datos en Supabase
 
-Editar el archivo `backend/.env`:
+1. Crea un proyecto en Supabase.
+2. Ve al **SQL Editor** y ejecuta el contenido completo del archivo `database/schema_supabase.sql`.
+3. Ve a la configuración de base de datos en Supabase y obtén tu **Connection Pooler URL** (importante para compatibilidad IPv4).
+
+### 4. Configurar variables de entorno
+
+Crea un archivo `.env` en la carpeta `backend/` con el siguiente contenido:
 
 ```env
 PORT=3000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=          # Dejar vacío si XAMPP no tiene contraseña
-DB_NAME=billar_db
+DATABASE_URL=postgresql://postgres.tu_id:tu_password@aws-0-region.pooler.supabase.com:6543/postgres
 JWT_SECRET=super_secret_jwt_key_billar_123
 ```
-
-### 4. Inicializar la base de datos
-
-1. Abrir **phpMyAdmin** o el cliente MySQL de tu preferencia.
-2. Ejecutar el script completo:
-
-```bash
-# Desde la línea de comandos MySQL
-mysql -u root -p < database/schema.sql
-```
-
-Esto crea la base de datos `billar_db`, todas las tablas, 6 mesas por defecto, el usuario administrador y el catálogo de productos.
+*(Nota: Reemplaza `DATABASE_URL` con la URL real de tu Connection Pooler de Supabase. Recuerda que si tu contraseña tiene el símbolo `@`, debes escribirlo como `%40` en la URL).*
 
 ### 5. Iniciar el servidor
 
 ```bash
-node backend/server.js
+npm start
 ```
 
-El servidor quedará disponible en: **http://localhost:3000**
+El sistema estará disponible en: **http://localhost:3000**
+
+---
+
+## 🚀 Despliegue en Producción (Render + Supabase)
+
+El sistema está preparado para ser desplegado fácilmente en **Render**:
+
+1. Crea un **Web Service** en Render conectado a tu repositorio de GitHub.
+2. Configuración:
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+3. En **Environment Variables**, agrega:
+   - `DATABASE_URL`: La URL del Connection Pooler de Supabase (ej: `postgresql://postgres.[id]:[pass]@...:6543/postgres`)
+   - `JWT_SECRET`: Tu clave secreta (ej: `super_secret_jwt_key_billar_123`)
+4. Haz clic en **Deploy**. El frontend y backend se servirán automáticamente desde la misma URL de Render.
 
 ---
 
 ## 🗄️ Base de Datos
 
-### Tablas principales
+### Tablas principales (PostgreSQL)
 
 | Tabla         | Descripción                                      |
 |---------------|--------------------------------------------------|
@@ -160,15 +168,8 @@ El servidor quedará disponible en: **http://localhost:3000**
 | `tables`      | Mesas de billar con estado y precio/hora         |
 | `reservations`| Reservas vinculadas a usuario y mesa             |
 | `products`    | Catálogo de productos del bar/tienda             |
-| `sales`       | Cabecera de ventas POS                           |
+| `sales`       | Cabecera de ventas POS usando transacciones nativas |
 | `sale_items`  | Detalle de productos por venta                   |
-
-### Diagrama de relaciones
-
-```
-users ──┬── reservations ── tables
-        └── sales ── sale_items ── products
-```
 
 ---
 
@@ -183,17 +184,17 @@ users ──┬── reservations ── tables
 ### Mesas
 | Método | Ruta               | Acceso | Descripción              |
 |--------|--------------------|--------|--------------------------|
-| GET    | `/api/tables`      | Auth   | Listar todas las mesas   |
+| GET    | `/api/tables`      | Público| Listar todas las mesas   |
 | PUT    | `/api/tables/:id`  | Admin  | Actualizar estado/precio |
 
 ### Reservas
 | Método | Ruta                     | Acceso | Descripción                    |
 |--------|--------------------------|--------|--------------------------------|
 | GET    | `/api/reservations`      | Admin  | Todas las reservas             |
-| GET    | `/api/reservations/my`   | Auth   | Reservas del usuario actual    |
+| GET    | `/api/reservations/slots`| Público| Horarios ocupados por fecha    |
+| GET    | `/api/reservations/my-reservations` | Auth | Reservas del usuario actual |
 | POST   | `/api/reservations`      | Auth   | Crear reserva                  |
 | PUT    | `/api/reservations/:id`  | Admin  | Actualizar estado de reserva   |
-| DELETE | `/api/reservations/:id`  | Admin  | Eliminar reserva               |
 
 ### Inventario (Productos)
 | Método | Ruta                 | Acceso | Descripción         |
@@ -207,32 +208,16 @@ users ──┬── reservations ── tables
 | Método | Ruta          | Acceso | Descripción                     |
 |--------|---------------|--------|---------------------------------|
 | POST   | `/api/sales`  | Admin  | Registrar venta con sus items   |
-| GET    | `/api/sales`  | Admin  | Historial de ventas y totales   |
-
----
-
-## 🖥️ Módulos del Sistema
-
-### 👤 Cliente
-- **Inicio** (`/index.html`) — Mapa visual de mesas con estado en tiempo real
-- **Reservar** — Selección de mesa, fecha y horario con cálculo de precio automático
-- **Mi Perfil** (`/profile.html`) — Historial de reservas personales
-
-### 🔧 Administrador
-- **Gestión de Reservas** (`/admin_reservations.html`) — Ver, confirmar, completar o cancelar reservas
-- **Inventario** (`/admin_inventory.html`) — Agregar, editar y eliminar productos del bar
-- **Punto de Venta** (`/admin_pos.html`) — Carrito de compras para ventas en mostrador
-- **Finanzas** (`/admin_finances.html`) — Resumen de ingresos por reservas y ventas
+| GET    | `/api/sales/daily` | Admin | Historial de ventas y totales |
 
 ---
 
 ## 🔑 Credenciales por Defecto
 
+Después de ejecutar el esquema SQL en Supabase, se creará el siguiente administrador por defecto:
+
 | Rol   | Email              | Contraseña |
 |-------|--------------------|------------|
 | Admin | admin@billar.com   | admin123   |
 
-> ⚠️ **Importante:** Cambiar la contraseña del administrador y el valor de `JWT_SECRET` en producción.
-
----
-
+> ⚠️ **Importante:** Cambia la contraseña del administrador y el valor de `JWT_SECRET` en producción para mantener el sistema seguro.
