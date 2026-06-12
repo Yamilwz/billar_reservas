@@ -1,6 +1,7 @@
 // En producción (Render) el frontend y backend corren en el mismo servidor,
-// por lo que window.location.origin apunta automáticamente a la URL correcta.
-const API_URL = `${window.location.origin}/api`;
+// pero si se abre localmente con file://, usamos localhost por defecto.
+const isFileProtocol = window.location.protocol === 'file:';
+const API_URL = isFileProtocol ? 'http://localhost:3000/api' : `${window.location.origin}/api`;
 
 const api = {
     async request(endpoint, method = 'GET', body = null) {
