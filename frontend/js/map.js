@@ -1,6 +1,9 @@
 let currentDate = new Date().toISOString().split('T')[0];
 document.getElementById('date-picker').value = currentDate;
 
+// Store the current table's price per hour for calculations
+let currentPricePerHour = 0;
+
 async function loadTables() {
   currentDate = document.getElementById('date-picker').value;
   const container = document.getElementById('tables-container');
@@ -60,7 +63,7 @@ async function loadTables() {
       const col = document.createElement('div');
       col.className = 'col-md-4 col-sm-6 slide-up';
       col.innerHTML = `
-        <div class="table-card ${statusClass}" onclick="${isAvailable ? `openReserveModal(${table.id}, ${table.table_number}, '${slotsJson}')` : ''}">
+        <div class="table-card ${statusClass}" onclick="${isAvailable ? `openReserveModal(${table.id}, ${table.table_number}, ${table.price_per_hour}, '${slotsJson}')` : ''}">
           <div class="billiard-surface">
             <span class="status-badge ${statusClass}">${table.status}</span>
             <div class="table-number">${table.table_number}</div>
@@ -73,7 +76,7 @@ async function loadTables() {
             </div>
             <div class="slots mt-2">${slotsHtml}</div>
             <button class="btn-primary-custom w-100 mt-2" style="font-size:.88rem; padding:8px"
-              ${isAvailable ? `onclick="event.stopPropagation(); openReserveModal(${table.id}, ${table.table_number}, '${slotsJson}')"` : 'disabled'}>
+              ${isAvailable ? `onclick="event.stopPropagation(); openReserveModal(${table.id}, ${table.table_number}, ${table.price_per_hour}, '${slotsJson}')"` : 'disabled'}>
               ${isAvailable ? 'Reservar' : table.status}
             </button>
           </div>
@@ -89,14 +92,31 @@ async function loadTables() {
 
 const reserveModal = new bootstrap.Modal(document.getElementById('reserveModal'));
 
-function openReserveModal(id, number, slotsJson) {
+function openReserveModal(id, number, pricePerHour, slotsJson) {
   if (!localStorage.getItem('token')) {
     window.location.href = '/login.html';
     return;
   }
   document.getElementById('tableId').value = id;
+  document.getElementById('tablePricePerHour').value = pricePerHour;
   document.getElementById('modal-table-num').innerText = number;
   document.getElementById('reserveError').classList.add('d-none');
+  currentPricePerHour = parseFloat(pricePerHour);
+
+  // Reset time inputs
+  document.getElementById('startTime').value = '';
+  document.getElementById('endTime').value = '';
+
+  // Reset price section
+  document.getElementById('priceCalcSection').classList.add('d-none');
+  document.getElementById('qrPaymentSection').classList.add('d-none');
+  document.getElementById('receiptSection').classList.add('d-none');
+  document.getElementById('receiptPreview').classList.add('d-none');
+
+  // Reset receipt input
+  const receiptInput = document.getElementById('receiptInput');
+  receiptInput.value = '';
+  receiptInput.required = true;
 
   const container = document.getElementById('reserved-slots-container');
   const list = document.getElementById('reserved-slots-list');
@@ -117,27 +137,108 @@ function openReserveModal(id, number, slotsJson) {
   reserveModal.show();
 }
 
+// --- Dynamic price calculation ---
+function updatePriceCalculation() {
+  const startTime = document.getElementById('startTime').value;
+  const endTime = document.getElementById('endTime').value;
+
+  const priceSection = document.getElementById('priceCalcSection');
+  const qrSection = document.getElementById('qrPaymentSection');
+  const receiptSection = document.getElementById('receiptSection');
+
+  if (!startTime || !endTime) {
+    priceSection.classList.add('d-none');
+    qrSection.classList.add('d-none');
+    receiptSection.classList.add('d-none');
+    return;
+  }
+
+  const start = new Date(`1970-01-01T${startTime}Z`);
+  const end   = new Date(`1970-01-01T${endTime}Z`);
+  const durationHours = (end - start) / (1000 * 60 * 60);
+
+  if (durationHours <= 0) {
+    priceSection.classList.add('d-none');
+    qrSection.classList.add('d-none');
+    receiptSection.classList.add('d-none');
+    return;
+  }
+
+  const total = currentPricePerHour * durationHours;
+  const advance = total * 0.5;
+
+  document.getElementById('totalPriceDisplay').textContent = `Bs ${total.toFixed(2)}`;
+  document.getElementById('advancePriceDisplay').textContent = `Bs ${advance.toFixed(2)}`;
+
+  priceSection.classList.remove('d-none');
+  qrSection.classList.remove('d-none');
+  receiptSection.classList.remove('d-none');
+}
+
+document.getElementById('startTime').addEventListener('change', updatePriceCalculation);
+document.getElementById('endTime').addEventListener('change', updatePriceCalculation);
+
+// --- Receipt image preview ---
+document.getElementById('receiptInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  const previewContainer = document.getElementById('receiptPreview');
+  const previewImg = document.getElementById('receiptPreviewImg');
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      previewImg.src = ev.target.result;
+      previewContainer.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    previewContainer.classList.add('d-none');
+  }
+});
+
+// --- Convert file to Base64 ---
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// --- Form submission ---
 document.getElementById('reserveForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorDiv = document.getElementById('reserveError');
   errorDiv.classList.add('d-none');
 
-  const data = {
-    table_id: document.getElementById('tableId').value,
-    reservation_date: currentDate,
-    start_time: document.getElementById('startTime').value,
-    end_time: document.getElementById('endTime').value
-  };
+  const receiptFile = document.getElementById('receiptInput').files[0];
+  if (!receiptFile) {
+    errorDiv.textContent = 'Debes subir el comprobante de pago para confirmar la reserva.';
+    errorDiv.classList.remove('d-none');
+    return;
+  }
 
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
 
   try {
+    // Convert receipt to Base64
+    const receipt_base64 = await fileToBase64(receiptFile);
+
+    const data = {
+      table_id: document.getElementById('tableId').value,
+      reservation_date: currentDate,
+      start_time: document.getElementById('startTime').value,
+      end_time: document.getElementById('endTime').value,
+      receipt_base64: receipt_base64
+    };
+
     await api.reservations.create(data);
     reserveModal.hide();
     loadTables();
-    showToast('¡Reserva creada con éxito!', 'success');
+    showToast('¡Reserva creada con éxito! Tu comprobante fue enviado.', 'success');
   } catch (error) {
     errorDiv.textContent = error.message;
     errorDiv.classList.remove('d-none');

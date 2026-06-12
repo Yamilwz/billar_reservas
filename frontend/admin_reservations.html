@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin  Gestión de Reservas</title>
+  <title>Admin — Gestión de Reservas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div id="navPlaceholder"></div>
@@ -69,14 +69,30 @@
           <th>Mesa</th>
           <th>Horario</th>
           <th>Total</th>
+          <th>Comprobante</th>
           <th>Estado</th>
           <th>Acción</th>
         </tr>
       </thead>
       <tbody id="resBody">
-        <tr><td colspan="7" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
+        <tr><td colspan="8" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Receipt Viewer Modal -->
+<div class="modal fade" id="receiptModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📄 Comprobante de Pago</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="text-align:center;padding:24px;">
+        <img id="receiptModalImg" src="" alt="Comprobante" style="max-width:100%;max-height:70vh;border-radius:12px;border:1px solid var(--bg-500);">
+      </div>
+    </div>
   </div>
 </div>
 
@@ -88,10 +104,13 @@
   document.getElementById('navPlaceholder').innerHTML = renderAdminNav('admin_reservations');
   document.getElementById('dateFilter').value = new Date().toISOString().split('T')[0];
 
+  // Store receipts by reservation ID to avoid putting huge Base64 strings in HTML attributes
+  const receiptsMap = {};
+
   async function loadAllReservations() {
     const date = document.getElementById('dateFilter').value;
     const tbody = document.getElementById('resBody');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4" style="color:var(--text-400)"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4" style="color:var(--text-400)"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
 
     try {
       const res = await api.reservations.getAll(date);
@@ -103,12 +122,17 @@
       document.getElementById('kpiCancelled').textContent = res.filter(r => r.status === 'cancelada').length;
 
       if (res.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5" style="color:var(--text-400)">No hay reservas para esta fecha</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5" style="color:var(--text-400)">No hay reservas para esta fecha</td></tr>';
         return;
       }
 
       tbody.innerHTML = '';
       res.forEach(r => {
+        // Store receipt in map for later retrieval
+        if (r.receipt_url) {
+          receiptsMap[r.id] = r.receipt_url;
+        }
+
         let actionHtml;
         if (r.status === 'completada') {
           actionHtml = `<span class="badge-custom badge-cobrada">Mesa cobrada</span>`;
@@ -121,7 +145,7 @@
                 Cobrar
               </button>
               <button class="btn btn-sm btn-danger" onclick="cancelReservation(${r.id}, this)">
-                
+                ✕
               </button>
             </div>`;
         }
@@ -131,6 +155,10 @@
         else if (r.status === 'completada') statusBadge = `<span class="badge-custom badge-completada">Completada</span>`;
         else                                 statusBadge = `<span class="badge-custom badge-cancelada">Cancelada</span>`;
 
+        const receiptHtml = r.receipt_url
+          ? `<button class="btn btn-sm btn-outline-info" onclick="viewReceipt(${r.id})">📄 Ver</button>`
+          : `<span style="color:var(--text-500);font-size:.78rem">Sin comprobante</span>`;
+
         tbody.innerHTML += `
           <tr>
             <td style="color:var(--text-400);font-size:.8rem">#${r.id}</td>
@@ -139,16 +167,16 @@
             </td>
             <td><span style="color:var(--primary);font-weight:700">Mesa ${r.table_number}</span></td>
             <td style="font-size:.88rem">
-              
-              ${r.start_time.substring(0,5)}  ${r.end_time.substring(0,5)}
+              ${r.start_time.substring(0,5)} – ${r.end_time.substring(0,5)}
             </td>
-            <td style="color:var(--gold);font-weight:700">$${parseFloat(r.total_price || 0).toFixed(2)}</td>
+            <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(r.total_price || 0).toFixed(2)}</td>
+            <td>${receiptHtml}</td>
             <td>${statusBadge}</td>
             <td>${actionHtml}</td>
           </tr>`;
       });
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4"><div class="alert-dark-danger d-inline-block">${error.message}</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4"><div class="alert-dark-danger d-inline-block">${error.message}</div></td></tr>`;
     }
   }
 
@@ -159,7 +187,7 @@
     try {
       await api.reservations.updateStatus(id, 'completada');
       loadAllReservations();
-      showToast('Mesa cobrada y enviada a Finanzas ');
+      showToast('Mesa cobrada y enviada a Finanzas ✅');
     } catch (e) {
       alert(e.message);
       btn.disabled = false;
@@ -183,6 +211,16 @@
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3500);
+  }
+
+  const receiptModalEl = new bootstrap.Modal(document.getElementById('receiptModal'));
+
+  function viewReceipt(reservationId) {
+    const base64Url = receiptsMap[reservationId];
+    if (base64Url) {
+      document.getElementById('receiptModalImg').src = base64Url;
+      receiptModalEl.show();
+    }
   }
 
   loadAllReservations();

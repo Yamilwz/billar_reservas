@@ -2,7 +2,7 @@ const pool = require('../config/db');
 
 exports.createReservation = async (req, res) => {
     try {
-        const { table_id, reservation_date, start_time, end_time } = req.body;
+        const { table_id, reservation_date, start_time, end_time, receipt_base64 } = req.body;
         const user_id = req.user.id;
 
         // Validar que la mesa no esté reservada en ese horario
@@ -41,9 +41,9 @@ exports.createReservation = async (req, res) => {
         const totalPrice = (pricePerHour * durationHours).toFixed(2);
 
         const result = await pool.query(
-            `INSERT INTO reservations (user_id, table_id, reservation_date, start_time, end_time, total_price)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [user_id, table_id, reservation_date, start_time, end_time, totalPrice]
+            `INSERT INTO reservations (user_id, table_id, reservation_date, start_time, end_time, total_price, receipt_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+            [user_id, table_id, reservation_date, start_time, end_time, totalPrice, receipt_base64 || null]
         );
 
         res.status(201).json({ message: 'Reserva creada con éxito', reservationId: result.rows[0].id });
