@@ -1,4 +1,6 @@
-﻿const API_URL = 'http://localhost:3000/api';
+// En producción (Render) el frontend y backend corren en el mismo servidor,
+// por lo que window.location.origin apunta automáticamente a la URL correcta.
+const API_URL = `${window.location.origin}/api`;
 
 const api = {
     async request(endpoint, method = 'GET', body = null) {
