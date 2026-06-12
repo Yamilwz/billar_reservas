@@ -25,12 +25,12 @@ async function loadTables() {
     const tables = tablesResult.status === 'fulfilled' ? tablesResult.value : [];
     const slots  = slotsResult.status  === 'fulfilled' ? slotsResult.value  : [];
 
-    // Si no hay mesas y hubo error de auth, redirigir a login
-    if (tables.length === 0 && tablesResult.status === 'rejected') {
+    // Si falló la carga de las mesas, mostrar el error real
+    if (tablesResult.status === 'rejected') {
       container.innerHTML = `
         <div class="col-12">
           <div class="alert-dark-danger">
-            Debes <a href="/login.html" style="color:var(--primary)">iniciar sesión</a> para ver las mesas.
+            Error al cargar las mesas: ${tablesResult.reason.message || 'Error del servidor'}
           </div>
         </div>`;
       return;
