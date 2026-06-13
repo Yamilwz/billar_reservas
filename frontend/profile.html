@@ -165,7 +165,7 @@
             <td>${fecha}</td>
             <td><span style="color:var(--primary);font-weight:700">Mesa ${r.table_number}</span></td>
             <td>${r.start_time.substring(0,5)} – ${r.end_time.substring(0,5)}</td>
-            <td style="color:var(--text-400);font-size:.88rem">Bs 7.50</td>
+            <td style="color:var(--text-400);font-size:.88rem">Bs ${(parseFloat(r.total_price||0) * 0.5).toFixed(2)}</td>
             <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(r.total_price||0).toFixed(2)}</td>
             <td>${badge}</td>
           </tr>`;
@@ -195,7 +195,7 @@
         icon   = '✅';
         cls    = 'confirmada';
         title  = '¡Tu reserva fue aprobada!';
-        detail = `Mesa ${r.table_number} el ${fecha} de ${r.start_time.substring(0,5)} a ${r.end_time.substring(0,5)}. Recuerda llevar el pago restante de Bs ${(parseFloat(r.total_price||0) - 7.50).toFixed(2)}.`;
+        detail = `Mesa ${r.table_number} el ${fecha} de ${r.start_time.substring(0,5)} a ${r.end_time.substring(0,5)}. Recuerda llevar el pago restante de Bs ${(parseFloat(r.total_price||0) * 0.5).toFixed(2)}.`;
       } else if (r.status === 'cancelada') {
         icon   = '❌';
         cls    = 'cancelada';
