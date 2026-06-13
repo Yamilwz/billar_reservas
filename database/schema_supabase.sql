@@ -27,8 +27,7 @@ INSERT INTO tables (table_number, status, price_per_hour) VALUES
 (2, 'disponible', 15.00),
 (3, 'disponible', 15.00),
 (4, 'disponible', 15.00),
-(5, 'disponible', 15.00),
-(6, 'disponible', 15.00)
+(5, 'disponible', 15.00)
 ON CONFLICT (table_number) DO NOTHING;
 
 -- RESERVAS
