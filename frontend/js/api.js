@@ -53,6 +53,9 @@ const api = {
     sales: {
         create: (data) => api.request('/sales', 'POST', data),
         getDaily: (date) => api.request(`/sales/daily${date ? `?date=${date}` : ''}`)
+    },
+    users: {
+        getAll: () => api.request('/users')
     }
 };
 

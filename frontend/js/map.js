@@ -165,7 +165,7 @@ function updatePriceCalculation() {
   }
 
   const total = currentPricePerHour * durationHours;
-  const advance = total * 0.5;
+  const advance = 7.50;
 
   document.getElementById('totalPriceDisplay').textContent = `Bs ${total.toFixed(2)}`;
   document.getElementById('advancePriceDisplay').textContent = `Bs ${advance.toFixed(2)}`;

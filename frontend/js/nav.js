@@ -1,9 +1,10 @@
-﻿function renderAdminNav(activePage) {
+function renderAdminNav(activePage) {
   const pages = [
     { href: '/admin_reservations.html', icon: 'bi-calendar-check', label: 'Reservas' },
     { href: '/admin_inventory.html',    icon: 'bi-box-seam',       label: 'Inventario' },
     { href: '/admin_pos.html',          icon: 'bi-cart3',          label: 'POS / Tienda' },
     { href: '/admin_finances.html',     icon: 'bi-bar-chart-line', label: 'Finanzas' },
+    { href: '/admin_users.html',        icon: 'bi-people',         label: 'Usuarios' },
   ];
   const user = JSON.parse(localStorage.getItem('user'));
   return `

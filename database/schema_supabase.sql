@@ -18,15 +18,15 @@ CREATE TABLE IF NOT EXISTS tables (
     id            SERIAL PRIMARY KEY,
     table_number  INT NOT NULL UNIQUE,
     status        TEXT DEFAULT 'disponible' CHECK (status IN ('disponible', 'ocupada', 'mantenimiento')),
-    price_per_hour DECIMAL(10,2) NOT NULL DEFAULT 10.00
+    price_per_hour DECIMAL(10,2) NOT NULL DEFAULT 15.00
 );
 
 -- Mesas por defecto
 INSERT INTO tables (table_number, status, price_per_hour) VALUES 
-(1, 'disponible', 10.00),
-(2, 'disponible', 10.00),
-(3, 'disponible', 12.00),
-(4, 'disponible', 12.00),
+(1, 'disponible', 15.00),
+(2, 'disponible', 15.00),
+(3, 'disponible', 15.00),
+(4, 'disponible', 15.00),
 (5, 'disponible', 15.00),
 (6, 'disponible', 15.00)
 ON CONFLICT (table_number) DO NOTHING;

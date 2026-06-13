@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -20,6 +20,7 @@
       <div class="d-flex gap-3 align-items-center">
         <input type="date" id="dateFilter" class="form-control-dark" onchange="loadFinances()">
         <button class="btn-outline-custom" onclick="loadFinances()">Actualizar</button>
+        <button class="btn-primary-custom" onclick="exportToCSV()" id="exportBtn" style="background:linear-gradient(135deg,#1a7a4a,#22a05a)">⬇ Exportar Excel</button>
       </div>
     </div>
   </div>
@@ -107,6 +108,40 @@
     }
   }
   loadFinances();
+
+  function exportToCSV() {
+    const date = document.getElementById('dateFilter').value;
+    const tbody = document.getElementById('salesBody');
+    const rows = tbody.querySelectorAll('tr');
+    if (!rows.length || tbody.querySelector('td[colspan]')) {
+      alert('No hay datos para exportar en la fecha seleccionada.');
+      return;
+    }
+    const headers = ['#', 'Fecha y Hora', 'Cajero', 'Detalle', 'Total (Bs)', 'Tipo'];
+    const csvRows = [headers.join(';')];
+    rows.forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      if (cells.length < 6) return;
+      const rowData = [
+        cells[0].textContent.trim(),
+        cells[1].textContent.trim(),
+        cells[2].textContent.trim(),
+        '"' + cells[3].textContent.trim().replace(/"/g, '""') + '"',
+        cells[4].textContent.replace('Bs ', '').trim(),
+        cells[5].textContent.trim()
+      ];
+      csvRows.push(rowData.join(';'));
+    });
+    const BOM = '\uFEFF';
+    const csvContent = BOM + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `finanzas_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 </script>
 </body>
 </html>

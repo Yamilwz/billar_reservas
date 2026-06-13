@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -168,8 +168,8 @@
     const data = {
       name: document.getElementById('pName').value,
       description: document.getElementById('pDesc').value,
-      price: document.getElementById('pPrice').value,
-      stock: document.getElementById('pStock').value
+      price: parseFloat(document.getElementById('pPrice').value),
+      stock: parseInt(document.getElementById('pStock').value)
     };
     try {
       if (id) { await api.products.update(id, data); }
