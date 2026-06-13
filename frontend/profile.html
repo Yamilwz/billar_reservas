@@ -3,9 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Billar Hall  Mis Reservas</title>
+  <title>Billar Hall — Mis Reservas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .notification-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      animation: slideUp 0.4s ease;
+      border: 1px solid;
+    }
+    .notification-banner.confirmada {
+      background: rgba(0,230,118,0.08);
+      border-color: rgba(0,230,118,0.3);
+      color: var(--primary);
+    }
+    .notification-banner.cancelada {
+      background: rgba(255,77,109,0.08);
+      border-color: rgba(255,77,109,0.3);
+      color: var(--danger);
+    }
+    .notification-banner.pendiente {
+      background: rgba(255,201,71,0.08);
+      border-color: rgba(255,201,71,0.3);
+      color: var(--gold);
+    }
+    .notif-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+    .notif-body { flex: 1; }
+    .notif-title { font-weight: 700; font-size: .95rem; margin-bottom: 2px; }
+    .notif-detail { font-size: .82rem; opacity: .85; }
+    .notif-time { font-size: .75rem; opacity: .6; margin-top: 4px; }
+    .notif-badge-new {
+      background: var(--danger);
+      color: #fff;
+      border-radius: 20px;
+      font-size: .65rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    #notifSection { margin-bottom: 0; }
+  </style>
 </head>
 <body>
 
@@ -26,48 +71,154 @@
 </div>
 
 <div class="container py-4">
+
+  <!-- Panel de notificaciones -->
+  <div id="notifSection" class="mb-4" style="display:none">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span style="font-size:.78rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-400)">🔔 Notificaciones</span>
+      <span id="notifCount" class="notif-badge-new">0</span>
+    </div>
+    <div id="notifList"></div>
+  </div>
+
+  <!-- Tabla de reservas -->
   <div class="table-wrapper">
     <table class="admin-table">
       <thead>
-        <tr><th>Fecha</th><th>Mesa</th><th>Horario</th><th>Total</th><th>Estado</th></tr>
+        <tr>
+          <th>Fecha</th>
+          <th>Mesa</th>
+          <th>Horario</th>
+          <th>Adelanto</th>
+          <th>Total</th>
+          <th>Estado</th>
+        </tr>
       </thead>
       <tbody id="resBody">
-        <tr><td colspan="5" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
+        <tr><td colspan="6" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/api.js"></script>
 <script>
   const user = checkAuth();
+
+  // Clave de localStorage para rastrear qué estados ya vio el usuario
+  const SEEN_KEY = `seen_statuses_${user ? user.id : 'x'}`;
 
   async function load() {
     try {
       const res = await api.reservations.getMy();
       const tbody = document.getElementById('resBody');
+
       if (res.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5" style="color:var(--text-400)">No tienes reservas registradas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5" style="color:var(--text-400)">No tienes reservas registradas</td></tr>';
         return;
       }
+
+      // ------ NOTIFICACIONES ------
+      const seenRaw = localStorage.getItem(SEEN_KEY);
+      const seen    = seenRaw ? JSON.parse(seenRaw) : {};
+      const notify  = [];
+
+      res.forEach(r => {
+        const key = `${r.id}`;
+        const prevStatus = seen[key];
+        const curStatus  = r.status;
+
+        // Si cambió de pendiente a confirmada o cancelada → notificar
+        if (
+          (curStatus === 'confirmada' || curStatus === 'cancelada' || curStatus === 'completada') &&
+          prevStatus !== curStatus
+        ) {
+          notify.push(r);
+        }
+
+        // Actualizar estado visto
+        seen[key] = curStatus;
+      });
+
+      localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+
+      if (notify.length > 0) {
+        renderNotifications(notify);
+      }
+
+      // ------ TABLA ------
       tbody.innerHTML = '';
       res.forEach(r => {
         const badge =
-          r.status === 'completada' ? `<span class="badge-custom badge-completada">Completada</span>` :
-          r.status === 'confirmada' ? `<span class="badge-custom badge-confirmada">Confirmada</span>` :
-          r.status === 'cancelada'  ? `<span class="badge-custom badge-cancelada">Cancelada</span>` :
-                                      `<span class="badge-custom badge-pendiente">Por Revisar</span>`;
+          r.status === 'completada' ? `<span class="badge-custom badge-completada">✅ Completada</span>` :
+          r.status === 'confirmada' ? `<span class="badge-custom badge-confirmada">✔ Confirmada</span>` :
+          r.status === 'cancelada'  ? `<span class="badge-custom badge-cancelada">✖ Cancelada</span>` :
+                                      `<span class="badge-custom badge-pendiente">⏳ Por Revisar</span>`;
+
+        const fecha = new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('es-BO', {
+          weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+        });
+
         tbody.innerHTML += `
           <tr>
-            <td>${new Date(r.reservation_date).toLocaleDateString('es-BO')}</td>
+            <td>${fecha}</td>
             <td><span style="color:var(--primary);font-weight:700">Mesa ${r.table_number}</span></td>
-            <td>${r.start_time.substring(0,5)}  ${r.end_time.substring(0,5)}</td>
+            <td>${r.start_time.substring(0,5)} – ${r.end_time.substring(0,5)}</td>
+            <td style="color:var(--text-400);font-size:.88rem">Bs 7.50</td>
             <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(r.total_price||0).toFixed(2)}</td>
             <td>${badge}</td>
           </tr>`;
       });
-    } catch (e) { alert(e.message); }
+
+    } catch (e) {
+      document.getElementById('resBody').innerHTML = `<tr><td colspan="6" class="text-center py-4"><div class="alert-dark-danger d-inline-block">${e.message}</div></td></tr>`;
+    }
   }
+
+  function renderNotifications(list) {
+    const section = document.getElementById('notifSection');
+    const notifList = document.getElementById('notifList');
+    const countBadge = document.getElementById('notifCount');
+
+    section.style.display = '';
+    countBadge.textContent = list.length;
+
+    notifList.innerHTML = '';
+    list.forEach(r => {
+      let icon, title, detail, cls;
+      const fecha = new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('es-BO', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+      if (r.status === 'confirmada') {
+        icon   = '✅';
+        cls    = 'confirmada';
+        title  = '¡Tu reserva fue aprobada!';
+        detail = `Mesa ${r.table_number} el ${fecha} de ${r.start_time.substring(0,5)} a ${r.end_time.substring(0,5)}. Recuerda llevar el pago restante de Bs ${(parseFloat(r.total_price||0) - 7.50).toFixed(2)}.`;
+      } else if (r.status === 'cancelada') {
+        icon   = '❌';
+        cls    = 'cancelada';
+        title  = 'Tu reserva fue rechazada';
+        detail = `Mesa ${r.table_number} el ${fecha} de ${r.start_time.substring(0,5)} a ${r.end_time.substring(0,5)}. Contacta con el administrador si tienes dudas.`;
+      } else if (r.status === 'completada') {
+        icon   = '🏆';
+        cls    = 'confirmada';
+        title  = 'Reserva completada';
+        detail = `Mesa ${r.table_number} el ${fecha}. ¡Gracias por visitarnos!`;
+      }
+
+      notifList.innerHTML += `
+        <div class="notification-banner ${cls}">
+          <div class="notif-icon">${icon}</div>
+          <div class="notif-body">
+            <div class="notif-title">${title} <span class="notif-badge-new">NUEVO</span></div>
+            <div class="notif-detail">${detail}</div>
+          </div>
+        </div>`;
+    });
+  }
+
   load();
 </script>
 </body>

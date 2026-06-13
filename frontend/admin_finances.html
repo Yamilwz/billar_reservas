@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin  Finanzas</title>
+  <title>Admin — Finanzas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div id="navPlaceholder"></div>
@@ -14,7 +14,7 @@
   <div class="container-fluid px-4">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
       <div>
-        <h1 class="page-title">Finanzas & Cuadre de Caja</h1>
+        <h1 class="page-title">Finanzas &amp; Cuadre de Caja</h1>
         <p class="page-subtitle mt-1">Registro de ventas diarias y control financiero</p>
       </div>
       <div class="d-flex gap-3 align-items-center">
@@ -71,6 +71,9 @@
   document.getElementById('navPlaceholder').innerHTML = renderAdminNav('admin_finances');
   document.getElementById('dateFilter').value = new Date().toISOString().split('T')[0];
 
+  // Variable en memoria para exportar sin depender del DOM
+  let currentSalesData = [];
+
   async function loadFinances() {
     const date  = document.getElementById('dateFilter').value;
     const tbody = document.getElementById('salesBody');
@@ -79,6 +82,10 @@
       const data  = await api.sales.getDaily(date);
       const total = parseFloat(data.total || 0);
       const count = data.sales.length;
+
+      // Guardar en memoria para el exportador
+      currentSalesData = data.sales;
+
       document.getElementById('totalSales').textContent = `Bs ${total.toFixed(2)}`;
       document.getElementById('totalTx').textContent    = count;
       document.getElementById('avgSale').textContent    = count > 0 ? `Bs ${(total/count).toFixed(2)}` : 'Bs 0.00';
@@ -110,36 +117,40 @@
   loadFinances();
 
   function exportToCSV() {
-    const date = document.getElementById('dateFilter').value;
-    const tbody = document.getElementById('salesBody');
-    const rows = tbody.querySelectorAll('tr');
-    if (!rows.length || tbody.querySelector('td[colspan]')) {
-      alert('No hay datos para exportar en la fecha seleccionada.');
+    if (!currentSalesData || currentSalesData.length === 0) {
+      alert('No hay datos para exportar. Carga las finanzas del día primero.');
       return;
     }
+    const date = document.getElementById('dateFilter').value;
     const headers = ['#', 'Fecha y Hora', 'Cajero', 'Detalle', 'Total (Bs)', 'Tipo'];
     const csvRows = [headers.join(';')];
-    rows.forEach(row => {
-      const cells = Array.from(row.querySelectorAll('td'));
-      if (cells.length < 6) return;
+
+    currentSalesData.forEach(s => {
+      const isRes  = s.description && s.description.toLowerCase().includes('reserva');
+      const tipo   = isRes ? 'Reserva' : 'POS';
+      const fecha  = new Date(s.sale_date).toLocaleString('es-BO');
+      const detalle = (s.description || 'Venta general').replace(/"/g, '""');
       const rowData = [
-        cells[0].textContent.trim(),
-        cells[1].textContent.trim(),
-        cells[2].textContent.trim(),
-        '"' + cells[3].textContent.trim().replace(/"/g, '""') + '"',
-        cells[4].textContent.replace('Bs ', '').trim(),
-        cells[5].textContent.trim()
+        `#${s.id}`,
+        fecha,
+        s.admin_name || '',
+        `"${detalle}"`,
+        parseFloat(s.total_amount).toFixed(2),
+        tipo
       ];
       csvRows.push(rowData.join(';'));
     });
+
     const BOM = '\uFEFF';
     const csvContent = BOM + csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     a.download = `finanzas_${date}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 </script>

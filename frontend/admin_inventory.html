@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin  Inventario</title>
+  <title>Admin — Inventario</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div id="navPlaceholder"></div>
@@ -18,7 +18,7 @@
         <p class="page-subtitle mt-1">Gestiona el stock de bebidas, snacks y más</p>
       </div>
       <button class="btn-primary-custom" onclick="openProductModal()">
-        Nuevo Producto
+        + Nuevo Producto
       </button>
     </div>
   </div>
@@ -27,7 +27,6 @@
 <div class="container-fluid px-4 py-4">
   <!-- Search bar -->
   <div class="date-filter-bar mb-4">
-    
     <input type="text" id="searchInput" class="form-control-dark flex-grow-1" placeholder="Buscar producto..." oninput="filterProducts()">
   </div>
 
@@ -51,15 +50,17 @@
 </div>
 
 <!-- Product Modal -->
-<div class="modal fade" id="prodModal" tabindex="-1">
+<div class="modal fade" id="prodModal" tabindex="-1" aria-labelledby="prodModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="prodModalTitle">Nuevo Producto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="prodModalLabel">Nuevo Producto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
-        <form id="prodForm">
+        <!-- Alerta de error dentro del modal -->
+        <div id="modalError" class="alert-dark-danger mb-3 d-none"></div>
+        <form id="prodForm" novalidate>
           <input type="hidden" id="prodId">
           <div class="mb-3">
             <label class="form-label">Nombre del Producto</label>
@@ -72,11 +73,11 @@
           <div class="row g-3">
             <div class="col-6">
               <label class="form-label">Precio (Bs)</label>
-              <input type="number" id="pPrice" class="form-control-dark w-100" step="0.01" placeholder="0.00" required>
+              <input type="number" id="pPrice" class="form-control-dark w-100" step="0.01" min="0" placeholder="0.00" required>
             </div>
             <div class="col-6">
               <label class="form-label">Stock (unidades)</label>
-              <input type="number" id="pStock" class="form-control-dark w-100" placeholder="0" required>
+              <input type="number" id="pStock" class="form-control-dark w-100" min="0" placeholder="0" required>
             </div>
           </div>
           <button type="submit" id="prodSaveBtn" class="btn-primary-custom w-100 mt-4">
@@ -94,14 +95,22 @@
 <script>
   checkAuth('admin');
   document.getElementById('navPlaceholder').innerHTML = renderAdminNav('admin_inventory');
-  const modal = new bootstrap.Modal(document.getElementById('prodModal'));
+
+  // Inicializar el modal DESPUÉS de que Bootstrap cargue
+  const modalEl = document.getElementById('prodModal');
+  const modal   = new bootstrap.Modal(modalEl);
+
   let allProducts = [];
 
   async function loadProducts() {
+    const tbody = document.getElementById('prodBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4" style="color:var(--text-400)"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>';
     try {
       allProducts = await api.products.getAll();
       renderProducts(allProducts);
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4"><div class="alert-dark-danger d-inline-block">${e.message}</div></td></tr>`;
+    }
   }
 
   function renderProducts(products) {
@@ -113,22 +122,17 @@
     }
     products.forEach(p => {
       const stockClass = p.stock < 5 ? 'stock-low' : 'stock-ok';
-      const stockIcon  = p.stock < 5 ? 'bi-exclamation-triangle' : 'bi-check-circle';
       tbody.innerHTML += `
         <tr>
           <td style="color:var(--text-400);font-size:.8rem">#${p.id}</td>
           <td style="font-weight:600">${p.name}</td>
-          <td style="font-size:.82rem;color:var(--text-400)">${p.description || ''}</td>
+          <td style="font-size:.82rem;color:var(--text-400)">${p.description || '—'}</td>
           <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(p.price).toFixed(2)}</td>
           <td><span class="${stockClass}">${p.stock} ud.</span></td>
           <td>
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-secondary" onclick="editProduct(${p.id})">
-                
-              </button>
-              <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">
-                
-              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="editProduct(${p.id})">✏ Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">🗑 Eliminar</button>
             </div>
           </td>
         </tr>`;
@@ -137,56 +141,105 @@
 
   function filterProducts() {
     const q = document.getElementById('searchInput').value.toLowerCase();
-    renderProducts(allProducts.filter(p => p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)));
+    renderProducts(allProducts.filter(p =>
+      p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
+    ));
   }
 
   function openProductModal() {
     document.getElementById('prodForm').reset();
     document.getElementById('prodId').value = '';
-    document.getElementById('prodModalTitle').innerHTML = 'Nuevo Producto';
+    document.getElementById('prodModalLabel').textContent = 'Nuevo Producto';
+    document.getElementById('modalError').classList.add('d-none');
+    document.getElementById('prodSaveBtn').disabled = false;
+    document.getElementById('prodSaveBtn').textContent = 'Guardar Producto';
     modal.show();
   }
 
   function editProduct(id) {
     const p = allProducts.find(x => x.id === id);
     if (!p) return;
-    document.getElementById('prodId').value  = p.id;
-    document.getElementById('pName').value   = p.name;
-    document.getElementById('pDesc').value   = p.description;
-    document.getElementById('pPrice').value  = p.price;
-    document.getElementById('pStock').value  = p.stock;
-    document.getElementById('prodModalTitle').innerHTML = 'Editar Producto';
+    document.getElementById('prodId').value   = p.id;
+    document.getElementById('pName').value    = p.name;
+    document.getElementById('pDesc').value    = p.description || '';
+    document.getElementById('pPrice').value   = p.price;
+    document.getElementById('pStock').value   = p.stock;
+    document.getElementById('prodModalLabel').textContent = 'Editar Producto';
+    document.getElementById('modalError').classList.add('d-none');
+    document.getElementById('prodSaveBtn').disabled = false;
+    document.getElementById('prodSaveBtn').textContent = 'Guardar Cambios';
     modal.show();
   }
 
   document.getElementById('prodForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id  = document.getElementById('prodId').value;
-    const btn = document.getElementById('prodSaveBtn');
+    const errorDiv = document.getElementById('modalError');
+    const btn      = document.getElementById('prodSaveBtn');
+    const id       = document.getElementById('prodId').value;
+
+    const name  = document.getElementById('pName').value.trim();
+    const desc  = document.getElementById('pDesc').value.trim();
+    const price = parseFloat(document.getElementById('pPrice').value);
+    const stock = parseInt(document.getElementById('pStock').value, 10);
+
+    // Validación básica en el cliente
+    if (!name) {
+      errorDiv.textContent = 'El nombre del producto es obligatorio.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      errorDiv.textContent = 'El precio debe ser un número válido mayor o igual a 0.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+    if (isNaN(stock) || stock < 0) {
+      errorDiv.textContent = 'El stock debe ser un número entero mayor o igual a 0.';
+      errorDiv.classList.remove('d-none');
+      return;
+    }
+
+    errorDiv.classList.add('d-none');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-    const data = {
-      name: document.getElementById('pName').value,
-      description: document.getElementById('pDesc').value,
-      price: parseFloat(document.getElementById('pPrice').value),
-      stock: parseInt(document.getElementById('pStock').value)
-    };
+
+    const data = { name, description: desc, price, stock };
+
     try {
-      if (id) { await api.products.update(id, data); }
-      else     { await api.products.create(data); }
+      if (id) {
+        await api.products.update(id, data);
+      } else {
+        await api.products.create(data);
+      }
       modal.hide();
-      loadProducts();
-    } catch (e) { alert(e.message); }
-    finally {
+      await loadProducts();
+      showToast(id ? '✅ Producto actualizado' : '✅ Producto creado');
+    } catch (err) {
+      errorDiv.textContent = err.message || 'Error al guardar el producto.';
+      errorDiv.classList.remove('d-none');
+    } finally {
       btn.disabled = false;
-      btn.innerHTML = 'Guardar Producto';
+      btn.innerHTML = id ? 'Guardar Cambios' : 'Guardar Producto';
     }
   });
 
   async function deleteProduct(id) {
     if (!confirm('¿Eliminar este producto del inventario?')) return;
-    try { await api.products.delete(id); loadProducts(); }
-    catch (e) { alert(e.message); }
+    try {
+      await api.products.delete(id);
+      await loadProducts();
+      showToast('🗑 Producto eliminado');
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:24px;right:24px;background:var(--bg-700);border:1px solid var(--primary);color:var(--primary);padding:14px 22px;border-radius:12px;font-weight:600;font-size:.9rem;box-shadow:var(--shadow);z-index:9999;animation:slideUp .3s ease`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
   }
 
   loadProducts();
