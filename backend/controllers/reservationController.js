@@ -108,7 +108,7 @@ exports.updateReservationStatus = async (req, res) => {
         // Si se marca como completada, generar venta automática
         if (status === 'completada' && reservation.status !== 'completada') {
             const admin_id = req.user.id;
-            const desc = `Cobro de Reserva - Mesa ${reservation.table_id}`;
+            const desc = `Cobro Final de Reserva - Mesa ${reservation.table_id}`;
             await pool.query(
                 'INSERT INTO sales (user_id, total_amount, description) VALUES ($1, $2, $3)',
                 [admin_id, reservation.total_price, desc]

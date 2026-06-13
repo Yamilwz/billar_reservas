@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -54,8 +54,9 @@
       res.forEach(r => {
         const badge =
           r.status === 'completada' ? `<span class="badge-custom badge-completada">Completada</span>` :
+          r.status === 'confirmada' ? `<span class="badge-custom badge-confirmada">Confirmada</span>` :
           r.status === 'cancelada'  ? `<span class="badge-custom badge-cancelada">Cancelada</span>` :
-                                      `<span class="badge-custom badge-pendiente">Pendiente</span>`;
+                                      `<span class="badge-custom badge-pendiente">Por Revisar</span>`;
         tbody.innerHTML += `
           <tr>
             <td>${new Date(r.reservation_date).toLocaleDateString('es-BO')}</td>

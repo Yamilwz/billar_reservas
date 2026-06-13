@@ -41,21 +41,21 @@
       <div class="kpi-card gold">
         <div class="kpi-icon"></div>
         <div class="kpi-value" id="kpiPending"></div>
-        <div class="kpi-label">Pendientes</div>
+        <div class="kpi-label">Por Revisar</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
       <div class="kpi-card blue">
         <div class="kpi-icon"></div>
-        <div class="kpi-value" id="kpiCompleted"></div>
-        <div class="kpi-label">Completadas</div>
+        <div class="kpi-value" id="kpiConfirmed"></div>
+        <div class="kpi-label">Confirmadas</div>
       </div>
     </div>
     <div class="col-md-3 col-6">
       <div class="kpi-card">
         <div class="kpi-icon"></div>
-        <div class="kpi-value" id="kpiCancelled"></div>
-        <div class="kpi-label">Canceladas</div>
+        <div class="kpi-value" id="kpiCompleted"></div>
+        <div class="kpi-label">Completadas</div>
       </div>
     </div>
   </div>
@@ -104,7 +104,6 @@
   document.getElementById('navPlaceholder').innerHTML = renderAdminNav('admin_reservations');
   document.getElementById('dateFilter').value = new Date().toISOString().split('T')[0];
 
-  // Store receipts by reservation ID to avoid putting huge Base64 strings in HTML attributes
   const receiptsMap = {};
 
   async function loadAllReservations() {
@@ -118,8 +117,8 @@
       // KPIs
       document.getElementById('kpiTotal').textContent     = res.length;
       document.getElementById('kpiPending').textContent   = res.filter(r => r.status === 'pendiente').length;
+      document.getElementById('kpiConfirmed').textContent = res.filter(r => r.status === 'confirmada').length;
       document.getElementById('kpiCompleted').textContent = res.filter(r => r.status === 'completada').length;
-      document.getElementById('kpiCancelled').textContent = res.filter(r => r.status === 'cancelada').length;
 
       if (res.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5" style="color:var(--text-400)">No hay reservas para esta fecha</td></tr>';
@@ -128,30 +127,35 @@
 
       tbody.innerHTML = '';
       res.forEach(r => {
-        // Store receipt in map for later retrieval
         if (r.receipt_url) {
           receiptsMap[r.id] = r.receipt_url;
         }
 
-        let actionHtml;
-        if (r.status === 'completada') {
-          actionHtml = `<span class="badge-custom badge-cobrada">Mesa cobrada</span>`;
-        } else if (r.status === 'cancelada') {
-          actionHtml = `<span class="badge-custom badge-cancelada">Cancelada</span>`;
-        } else {
+        let actionHtml = '';
+        if (r.status === 'pendiente') {
           actionHtml = `
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-success" onclick="confirmComplete(${r.id}, this)">
-                Cobrar
+              <button class="btn btn-sm btn-success" onclick="updateStatus(${r.id}, 'confirmada', this)" title="Aprobar Reserva">
+                Aprobar
               </button>
-              <button class="btn btn-sm btn-danger" onclick="cancelReservation(${r.id}, this)">
-                ✕
+              <button class="btn btn-sm btn-danger" onclick="updateStatus(${r.id}, 'cancelada', this)" title="Rechazar Reserva">
+                Rechazar
               </button>
             </div>`;
+        } else if (r.status === 'confirmada') {
+          actionHtml = `
+            <button class="btn btn-sm btn-primary" onclick="confirmFinalPayment(${r.id}, this)">
+              Cobrar Restante
+            </button>`;
+        } else if (r.status === 'completada') {
+          actionHtml = `<span class="badge-custom badge-cobrada">Finalizada</span>`;
+        } else {
+          actionHtml = `<span class="badge-custom badge-cancelada">Cancelada</span>`;
         }
 
         let statusBadge;
-        if      (r.status === 'pendiente')  statusBadge = `<span class="badge-custom badge-pendiente">Pendiente</span>`;
+        if      (r.status === 'pendiente')  statusBadge = `<span class="badge-custom badge-pendiente">Por Revisar</span>`;
+        else if (r.status === 'confirmada') statusBadge = `<span class="badge-custom badge-confirmada">Confirmada</span>`;
         else if (r.status === 'completada') statusBadge = `<span class="badge-custom badge-completada">Completada</span>`;
         else                                 statusBadge = `<span class="badge-custom badge-cancelada">Cancelada</span>`;
 
@@ -180,28 +184,35 @@
     }
   }
 
-  async function confirmComplete(id, btn) {
-    if (!confirm('¿Confirmar cobro de esta mesa?\n\nEl monto se enviará automáticamente a Finanzas y no se podrá revertir.')) return;
+  async function updateStatus(id, status, btn) {
+    const action = status === 'confirmada' ? 'aprobar' : 'rechazar';
+    if (!confirm(`¿Estás seguro de que quieres ${action} esta reserva?`)) return;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    try {
+      await api.reservations.updateStatus(id, status);
+      loadAllReservations();
+      showToast(`Reserva ${status === 'confirmada' ? 'aprobada' : 'rechazada'} con éxito`);
+    } catch (e) {
+      alert(e.message);
+      btn.disabled = false;
+      btn.innerHTML = status === 'confirmada' ? 'Aprobar' : 'Rechazar';
+    }
+  }
+
+  async function confirmFinalPayment(id, btn) {
+    if (!confirm('¿Confirmar el cobro final de esta mesa?\n\nEsto enviará el monto total a Finanzas.')) return;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     try {
       await api.reservations.updateStatus(id, 'completada');
       loadAllReservations();
-      showToast('Mesa cobrada y enviada a Finanzas ✅');
+      showToast('Pago final registrado ✅');
     } catch (e) {
       alert(e.message);
       btn.disabled = false;
-    }
-  }
-
-  async function cancelReservation(id, btn) {
-    if (!confirm('¿Cancelar esta reserva?')) return;
-    btn.disabled = true;
-    try {
-      await api.reservations.updateStatus(id, 'cancelada');
-      loadAllReservations();
-    } catch (e) {
-      alert(e.message);
+      btn.innerHTML = 'Cobrar Restante';
     }
   }
 
