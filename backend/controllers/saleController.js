@@ -90,13 +90,13 @@ exports.getDailySales = async (req, res) => {
             `SELECT s.id, s.total_amount, s.sale_date, s.description, u.name as admin_name
              FROM sales s
              LEFT JOIN users u ON s.user_id = u.id
-             WHERE DATE(s.sale_date) = $1
+             WHERE DATE(s.sale_date AT TIME ZONE 'UTC' AT TIME ZONE 'America/La_Paz') = $1
              ORDER BY s.sale_date DESC`,
             [queryDate]
         );
 
         const totalResult = await pool.query(
-            'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) = $1',
+            "SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date AT TIME ZONE 'UTC' AT TIME ZONE 'America/La_Paz') = $1",
             [queryDate]
         );
 

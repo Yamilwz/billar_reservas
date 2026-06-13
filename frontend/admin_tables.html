@@ -71,9 +71,10 @@
            badgeHtml = `<span class="badge-custom badge-pendiente">En Mantenimiento</span>`;
         }
 
-        const btnDisp = t.status !== 'disponible' ? `<button class="btn btn-sm btn-success px-3" onclick="updateTableStatus(${t.id}, 'disponible')">Marcar Disponible</button>` : '';
-        const btnMant = t.status !== 'mantenimiento' ? `<button class="btn btn-sm btn-warning px-3" onclick="updateTableStatus(${t.id}, 'mantenimiento')">Poner en Mantenimiento</button>` : '';
-        
+        const btnDisp = t.status !== 'disponible' ? `<button class="btn btn-sm btn-success px-3" onclick="updateTableStatus(${t.id}, 'disponible')">Disponible</button>` : '';
+        const btnMant = t.status !== 'mantenimiento' ? `<button class="btn btn-sm btn-outline-warning px-3" onclick="updateTableStatus(${t.id}, 'mantenimiento')">Mantenimiento</button>` : '';
+        const btnTime = (t.status === 'disponible' || t.status === 'ocupada') ? `<button class="btn btn-sm btn-primary-custom px-3 py-1" onclick="assignTime(${t.id})" style="font-size: .8rem">⏱ Dar/Ampliar Hora</button>` : '';
+
         tbody.innerHTML += `
           <tr>
             <td><span style="color:var(--primary);font-weight:700;font-size:1.1rem;">Mesa ${t.table_number}</span></td>
@@ -81,6 +82,7 @@
             <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(t.price_per_hour||0).toFixed(2)}</td>
             <td>
               <div class="d-flex gap-2">
+                ${btnTime}
                 ${btnDisp}
                 ${btnMant}
               </div>
@@ -98,6 +100,24 @@
     try {
       await api.tables.updateStatus(id, newStatus);
       loadTables(); // Recargar tabla
+    } catch(e) {
+      alert(e.message);
+    }
+  }
+
+  async function assignTime(id) {
+    const userInput = prompt("¿Cuántas horas deseas asignar o ampliar a la mesa? (Ej: 1, 1.5, 2)");
+    if (!userInput) return;
+    const hours = parseFloat(userInput);
+    if (isNaN(hours) || hours <= 0) {
+      alert("Por favor ingresa un número de horas válido.");
+      return;
+    }
+    
+    try {
+      const res = await api.reservations.assignTime({ table_id: id, hours_to_add: hours });
+      alert(res.message);
+      loadTables();
     } catch(e) {
       alert(e.message);
     }

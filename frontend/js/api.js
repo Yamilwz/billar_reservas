@@ -40,6 +40,7 @@ const api = {
     reservations: {
         getSlots: (date) => api.request(`/reservations/slots?date=${date}`),
         create: (data) => api.request('/reservations', 'POST', data),
+        assignTime: (data) => api.request('/reservations/assign-time', 'POST', data),
         getMy: () => api.request('/reservations/my-reservations'),
         getAll: (date) => api.request(`/reservations${date ? `?date=${date}` : ''}`),
         updateStatus: (id, status) => api.request(`/reservations/${id}`, 'PUT', { status })

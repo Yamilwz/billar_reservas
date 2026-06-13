@@ -138,3 +138,88 @@ exports.getBookedSlots = async (req, res) => {
         res.status(500).json({ message: 'Error fetching slots', error: error.message });
     }
 };
+
+exports.assignTableTime = async (req, res) => {
+    try {
+        const { table_id, hours_to_add } = req.body;
+        const user_id = req.user.id;
+        const hours = parseFloat(hours_to_add);
+
+        if (!hours || hours <= 0) return res.status(400).json({ message: 'Cantidad de horas inválida' });
+
+        const tableResult = await pool.query('SELECT price_per_hour FROM tables WHERE id = $1', [table_id]);
+        if (tableResult.rows.length === 0) return res.status(404).json({ message: 'Mesa no encontrada' });
+        const pricePerHour = tableResult.rows[0].price_per_hour;
+
+        // Fecha actual en la zona local configurada (usaremos local DB time para facilitar)
+        const dateQuery = await pool.query("SELECT CURRENT_DATE at time zone 'America/La_Paz' as today, CURRENT_TIME at time zone 'America/La_Paz' as now_time");
+        const today = dateQuery.rows[0].today.toISOString().split('T')[0];
+        let now_time = dateQuery.rows[0].now_time; 
+        // a veces now_time falla al parsearse, usemos JS:
+        const localDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/La_Paz"}));
+        const tToday = localDate.toISOString().split('T')[0];
+        const tNow = localDate.toTimeString().split(' ')[0]; // HH:MM:SS
+
+        // Buscar reserva activa para esta mesa hoy (pendiente o confirmada, y que no haya terminado)
+        const activeRes = await pool.query(
+            `SELECT id, start_time, end_time FROM reservations 
+             WHERE table_id = $1 AND reservation_date = $2 
+             AND status IN ('pendiente', 'confirmada')
+             AND end_time > $3
+             ORDER BY end_time DESC LIMIT 1`,
+            [table_id, tToday, tNow]
+        );
+
+        if (activeRes.rows.length > 0) {
+            // Ampliar la reserva existente
+            const r = activeRes.rows[0];
+            const oldEnd = r.end_time; // HH:MM:SS
+            const split = oldEnd.split(':');
+            const endDt = new Date(localDate);
+            endDt.setHours(parseInt(split[0]), parseInt(split[1]), parseInt(split[2]||0));
+            
+            endDt.setMinutes(endDt.getMinutes() + (hours * 60));
+            const newEnd = endDt.toTimeString().split(' ')[0];
+
+            // re-calcular precio (desde start hasta newEnd)
+            const splitStart = r.start_time.split(':');
+            const startDt = new Date(localDate);
+            startDt.setHours(parseInt(splitStart[0]), parseInt(splitStart[1]), parseInt(splitStart[2]||0));
+
+            const durHours = (endDt - startDt) / (1000 * 60 * 60);
+            const newPrice = (pricePerHour * durHours).toFixed(2);
+
+            await pool.query(
+                `UPDATE reservations SET end_time = $1, total_price = $2 WHERE id = $3`,
+                [newEnd, newPrice, r.id]
+            );
+
+            // Cambiar la mesa a ocupada si estaba disponible
+            await pool.query(`UPDATE tables SET status = 'ocupada' WHERE id = $1`, [table_id]);
+
+            return res.json({ message: 'Tiempo ampliado correctamente', new_end: newEnd });
+        } else {
+            // Crear nueva reserva
+            const startDt = new Date(localDate);
+            const endDt = new Date(localDate);
+            endDt.setMinutes(endDt.getMinutes() + (hours * 60));
+
+            const nStart = startDt.toTimeString().split(' ')[0];
+            const nEnd = endDt.toTimeString().split(' ')[0];
+            const nPrice = (pricePerHour * hours).toFixed(2);
+
+            await pool.query(
+                `INSERT INTO reservations (user_id, table_id, reservation_date, start_time, end_time, total_price, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'confirmada')`,
+                [user_id, table_id, tToday, nStart, nEnd, nPrice]
+            );
+
+            // Cambiar a ocupada
+            await pool.query(`UPDATE tables SET status = 'ocupada' WHERE id = $1`, [table_id]);
+
+            return res.status(201).json({ message: 'Hora asignada y mesa ocupada con éxito' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Error en asignación', error: error.message });
+    }
+};

@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const reservationController = require('../controllers/reservationController');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -9,6 +9,7 @@ router.post('/', authMiddleware(['cliente', 'admin']), reservationController.cre
 router.get('/my-reservations', authMiddleware(['cliente', 'admin']), reservationController.getUserReservations);
 
 // Admin routes
+router.post('/assign-time', authMiddleware('admin'), reservationController.assignTableTime);
 router.get('/', authMiddleware('admin'), reservationController.getAllReservations);
 router.put('/:id', authMiddleware('admin'), reservationController.updateReservationStatus);
 
