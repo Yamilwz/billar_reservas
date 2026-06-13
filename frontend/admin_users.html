@@ -58,10 +58,11 @@
           <th>Correo</th>
           <th>Rol</th>
           <th>Registrado</th>
+          <th>Acción</th>
         </tr>
       </thead>
       <tbody id="usersBody">
-        <tr><td colspan="5" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
+        <tr><td colspan="6" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -100,7 +101,7 @@
     const tbody = document.getElementById('usersBody');
     tbody.innerHTML = '';
     if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5" style="color:var(--text-400)">Sin coincidencias</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5" style="color:var(--text-400)">Sin coincidencias</td></tr>';
       return;
     }
     users.forEach((u, i) => {
@@ -109,6 +110,7 @@
         ? `<span class="badge-custom" style="color:var(--gold);border-color:rgba(255,193,7,.3);background:rgba(255,193,7,.08)">Admin</span>`
         : `<span class="badge-custom badge-completada">Cliente</span>`;
       const date = u.created_at ? new Date(u.created_at).toLocaleDateString('es-BO') : '—';
+      const btnDelete = isAdmin ? '' : `<button class="btn btn-sm btn-danger px-2 py-1" onclick="deleteUser(${u.id})" title="Eliminar usuario">🗑</button>`;
       tbody.innerHTML += `
         <tr>
           <td style="color:var(--text-400);font-size:.8rem">${i + 1}</td>
@@ -116,6 +118,7 @@
           <td style="font-size:.88rem;color:var(--text-200)">${u.email}</td>
           <td>${roleBadge}</td>
           <td style="font-size:.82rem;color:var(--text-400)">${date}</td>
+          <td>${btnDelete}</td>
         </tr>`;
     });
   }
@@ -125,6 +128,16 @@
     renderUsers(allUsers.filter(u =>
       u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
     ));
+  }
+
+  async function deleteUser(id) {
+    if (!confirm('¿Estás seguro de eliminar este usuario? Sus reservas también se eliminarán.')) return;
+    try {
+      await api.users.delete(id);
+      loadUsers(); // recargar
+    } catch (e) {
+      alert(e.message);
+    }
   }
 
   loadUsers();

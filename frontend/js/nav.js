@@ -1,6 +1,7 @@
 function renderAdminNav(activePage) {
   const pages = [
     { href: '/admin_reservations.html', icon: 'bi-calendar-check', label: 'Reservas' },
+    { href: '/admin_tables.html',       icon: 'bi-grid',           label: 'Mesas' },
     { href: '/admin_inventory.html',    icon: 'bi-box-seam',       label: 'Inventario' },
     { href: '/admin_pos.html',          icon: 'bi-cart3',          label: 'POS / Tienda' },
     { href: '/admin_finances.html',     icon: 'bi-bar-chart-line', label: 'Finanzas' },

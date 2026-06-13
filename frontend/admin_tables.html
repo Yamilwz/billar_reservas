@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Gestión de Mesas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="navPlaceholder"></div>
+
+<div class="page-hero">
+  <div class="container-fluid px-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <h1 class="page-title">Administración de Mesas</h1>
+        <p class="page-subtitle mt-1">Cambia el estado de las mesas a mantenimiento o disponible</p>
+      </div>
+      <div>
+         <button class="btn-outline-custom" onclick="loadTables()">Actualizar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container-fluid px-4 py-4">
+  <div class="table-wrapper">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Mesa #</th>
+          <th>Estado Actual</th>
+          <th>Precio/Hora</th>
+          <th>Acciones Rápidas (Cambiar Estado)</th>
+        </tr>
+      </thead>
+      <tbody id="tablesBody">
+        <tr><td colspan="4" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/nav.js"></script>
+<script>
+  checkAuth('admin');
+  document.getElementById('navPlaceholder').innerHTML = renderAdminNav('admin_tables');
+
+  async function loadTables() {
+    const tbody = document.getElementById('tablesBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4" style="color:var(--text-400)">Cargando...</td></tr>';
+    try {
+      const tables = await api.tables.getAll();
+      if(tables.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4" style="color:var(--text-400)">Sin mesas registradas</td></tr>';
+          return;
+      }
+      tbody.innerHTML = '';
+      
+      // Asegurarnos de usar variables válidas.
+      tables.forEach(t => {
+        let badgeHtml = '';
+        if (t.status === 'disponible') {
+           badgeHtml = `<span class="badge-custom badge-completada">Disponible</span>`;
+        } else if (t.status === 'ocupada') {
+           badgeHtml = `<span class="badge-custom badge-cancelada">Ocupada</span>`;
+        } else {
+           badgeHtml = `<span class="badge-custom badge-pendiente">En Mantenimiento</span>`;
+        }
+
+        const btnDisp = t.status !== 'disponible' ? `<button class="btn btn-sm btn-success px-3" onclick="updateTableStatus(${t.id}, 'disponible')">Marcar Disponible</button>` : '';
+        const btnMant = t.status !== 'mantenimiento' ? `<button class="btn btn-sm btn-warning px-3" onclick="updateTableStatus(${t.id}, 'mantenimiento')">Poner en Mantenimiento</button>` : '';
+        
+        tbody.innerHTML += `
+          <tr>
+            <td><span style="color:var(--primary);font-weight:700;font-size:1.1rem;">Mesa ${t.table_number}</span></td>
+            <td>${badgeHtml}</td>
+            <td style="color:var(--gold);font-weight:700">Bs ${parseFloat(t.price_per_hour||0).toFixed(2)}</td>
+            <td>
+              <div class="d-flex gap-2">
+                ${btnDisp}
+                ${btnMant}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4"><div class="alert-dark-danger d-inline-block">${e.message}</div></td></tr>`;
+    }
+  }
+
+  async function updateTableStatus(id, newStatus) {
+    if(!confirm(`¿Cambiar estado de esta mesa a ${newStatus}?`)) return;
+    try {
+      await api.tables.updateStatus(id, newStatus);
+      loadTables(); // Recargar tabla
+    } catch(e) {
+      alert(e.message);
+    }
+  }
+
+  loadTables();
+</script>
+</body>
+</html>

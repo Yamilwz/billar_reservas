@@ -55,7 +55,8 @@ const api = {
         getDaily: (date) => api.request(`/sales/daily${date ? `?date=${date}` : ''}`)
     },
     users: {
-        getAll: () => api.request('/users')
+        getAll: () => api.request('/users'),
+        delete: (id) => api.request(`/users/${id}`, 'DELETE')
     }
 };
 
